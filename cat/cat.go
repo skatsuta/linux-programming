@@ -8,7 +8,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "%s: file name not given\n", os.Args[0])
+		doCat("")
 	}
 
 	for i := 1; i < len(os.Args); i++ {
@@ -21,13 +21,17 @@ func main() {
 const bufferSize = 2048
 
 func doCat(path string) {
-	fd, err := syscall.Open(path, os.O_RDONLY, 0644)
-	if err != nil {
-		die(path)
+	fd := syscall.Stdout
+	if path != "" {
+		var err error
+		fd, err = syscall.Open(path, os.O_RDONLY, 0644)
+		if err != nil {
+			die(path)
+		}
 	}
 
-	buf := make([]byte, bufferSize)
 	for {
+		buf := make([]byte, bufferSize)
 		n, err := syscall.Read(fd, buf)
 		if err != nil {
 			die(path)
