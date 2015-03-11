@@ -2,41 +2,45 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"os"
-	"strconv"
+)
+
+const (
+	defaultNumLines = 10
 )
 
 func main() {
-	l := len(os.Args)
-
-	if l < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s n [file1 file2 ...]\n", os.Args[0])
-		os.Exit(1)
+	// Define usage
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage of %s [-n LINES] [file ...]:\n", os.Args[0])
+		flag.PrintDefaults()
 	}
 
-	nlines, err := strconv.Atoi(os.Args[1])
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
+	// process flags
+	nlines := defaultNumLines
+	flag.IntVar(&nlines, "n", defaultNumLines, "the number of lines to display")
+	flag.Parse()
 
-	if l == 2 {
+	l := len(flag.Args())
+
+	if l == 0 {
 		doHead(os.Stdin, nlines)
-		os.Exit(0)
+		return
 	}
 
-	for i := 2; i < l; i++ {
-		fp, err := os.Open(os.Args[i])
+	for _, path := range flag.Args() {
+		fp, err := os.Open(path)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
+			fmt.Fprintf(os.Stderr, "%v", err)
+			return
 		}
 		defer func() {
 			if e := fp.Close(); e != nil {
-				fmt.Fprintln(os.Stderr, e.Error())
-				os.Exit(1)
+				fmt.Fprintf(os.Stderr, "%v", err)
+				return
 			}
 		}()
 
@@ -65,8 +69,8 @@ func doHead(fp *os.File, nlines int) {
 
 		if c == '\n' {
 			if e := w.Flush(); e != nil {
-				fmt.Fprintln(os.Stderr, e.Error())
-				os.Exit(1)
+				fmt.Fprintf(os.Stderr, "%v", err)
+				return
 			}
 
 			nlines--
@@ -76,8 +80,8 @@ func doHead(fp *os.File, nlines int) {
 		}
 	}
 
-	if e := w.Flush(); e != nil {
-		fmt.Fprintln(os.Stderr, e.Error())
-		os.Exit(1)
+	if err := w.Flush(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v", err)
+		return
 	}
 }
