@@ -12,11 +12,11 @@ func main() {
 	for i := 1; i < len(os.Args); i++ {
 		fp, err := os.Open(os.Args[i])
 		if err != nil {
-			die(err.Error())
+			die(err)
 		}
 		defer func() {
 			if e := fp.Close(); e != nil {
-				die(e.Error())
+				die(e)
 			}
 		}()
 
@@ -30,18 +30,18 @@ func main() {
 			}
 
 			if e := w.WriteByte(c); e != nil {
-				die(e.Error())
+				die(e)
 			}
 		}
 
 		if e := w.Flush(); e != nil {
-			die(e.Error())
+			die(e)
 		}
 	}
 
 }
 
-func die(msg string) {
-	fmt.Fprintf(os.Stderr, msg)
+func die(err error) {
+	fmt.Fprintf(os.Stderr, "%v\n", err)
 	os.Exit(1)
 }
