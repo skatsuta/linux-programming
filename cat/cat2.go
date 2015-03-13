@@ -8,6 +8,11 @@ import (
 	"os"
 )
 
+const (
+	dispEnd = "$\n"
+	dispTab = "> "
+)
+
 type replacer interface {
 	replace(b byte) string
 }
@@ -19,11 +24,11 @@ type disp struct {
 
 func (d *disp) replace(b byte) string {
 	if b == '\n' && d.end {
-		return "$\n"
+		return dispEnd
 	}
 
 	if b == '\t' && d.tab {
-		return "> "
+		return dispTab
 	}
 
 	return string(b)
@@ -33,8 +38,8 @@ func newDisp() *disp {
 	d := new(disp)
 
 	// define flags
-	flag.BoolVar(&d.end, "e", false, "display a dollar sign (`$`) at the end of each line")
-	flag.BoolVar(&d.tab, "t", false, "display tab characters as `> `")
+	flag.BoolVar(&d.end, "e", false, "display a dollar sign (`"+dispEnd+"`) at the end of each line")
+	flag.BoolVar(&d.tab, "t", false, "display tab characters as `"+dispTab+"`")
 	flag.Parse()
 	flag.Usage = usage
 
