@@ -9,6 +9,8 @@ import (
 )
 
 func main() {
+	flag.Usage = usage
+
 	// process flags
 	flag.Bool("e", false, "display a dollar sign (`$`) at the end of each line")
 	flag.Bool("t", false, "display tab characters as `	`")
@@ -49,4 +51,9 @@ func main() {
 func die(err error) {
 	fmt.Fprintf(os.Stderr, "%v\n", err)
 	os.Exit(1)
+}
+
+func usage() {
+	fmt.Fprintf(os.Stderr, "Usage of %s [-et] [file ...]:\n", os.Args[0])
+	flag.PrintDefaults()
 }
