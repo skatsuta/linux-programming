@@ -2,12 +2,17 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 )
 
 func main() {
+	// process flags
+	flag.Bool("e", false, "display a dollar sign (`$`) at the end of each line")
+	flag.Bool("t", false, "display tab characters as `	`")
+	flag.Parse()
 
 	for i := 1; i < len(os.Args); i++ {
 		fp, err := os.Open(os.Args[i])
