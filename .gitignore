@@ -31,3 +31,6 @@
 # Vagrant
 .vagrant
 
+# Binaries
+bin
+
