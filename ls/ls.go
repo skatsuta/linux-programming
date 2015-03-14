@@ -8,7 +8,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		perror(fmt.Errorf("%s: no arguments\n", os.Args[0]))
+		doLs(".")
 	}
 
 	for _, path := range os.Args {
