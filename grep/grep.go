@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -9,23 +10,35 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	var ins, inv bool
+	flag.BoolVar(&ins, "i", false, "Perform case insensitive matching")
+	flag.BoolVar(&inv, "v", false, "Selected lines are those NOT matching any of the specified patterns")
+	flag.Parse()
+
+	args := flag.Args()
+
+	if len(args) == 0 {
 		fmt.Fprintf(os.Stderr, "no pattern\n")
 		return
 	}
 
-	re, err := regexp.Compile(os.Args[1])
+	expr := args[0]
+	if ins {
+		expr = "(?i)" + expr
+	}
+
+	re, err := regexp.Compile(expr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
 	}
 
-	if len(os.Args) == 2 {
-		doGrep(re, os.Stdin)
+	if len(args) == 1 {
+		doGrep(re, os.Stdin, inv)
 		return
 	}
 
-	for _, f := range os.Args[2:] {
+	for _, f := range args[1:] {
 		fp, err := os.Open(f)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -33,14 +46,14 @@ func main() {
 		}
 		defer fp.Close()
 
-		if e := doGrep(re, fp); e != nil {
+		if e := doGrep(re, fp, inv); e != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", e)
 			return
 		}
 	}
 }
 
-func doGrep(re *regexp.Regexp, fp *os.File) error {
+func doGrep(re *regexp.Regexp, fp *os.File, inv bool) error {
 	r := bufio.NewReader(fp)
 	w := bufio.NewWriter(os.Stdout)
 
@@ -50,7 +63,8 @@ func doGrep(re *regexp.Regexp, fp *os.File) error {
 			break
 		}
 
-		if re.MatchString(line) {
+		disp := re.MatchString(line) == !inv
+		if disp {
 			if _, e := w.WriteString(line); e != nil {
 				return e
 			}
