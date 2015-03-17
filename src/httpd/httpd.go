@@ -11,17 +11,12 @@ import (
 	"time"
 )
 
-// HTTPVer is an HTTP version this server supports.
-const HTTPVer = "HTTP/1.0"
-
-// headerDelim is an HTTP request header delimiter.
-const headerDelim = ": "
-
-const maxRequestBodyLength = 1024 * 1024
-
 const (
-	serverName = "LittleHTTP"
-	serverVer  = "1.0"
+	httpVer     = "HTTP/1.0"
+	headerDelim = ": "
+	maxBodyLen  = 1024 * 1024
+	serverName  = "LittleHTTP"
+	serverVer   = "1.0"
 )
 
 // HTTPHeaderField represents an HTTP header field.
@@ -111,7 +106,7 @@ func readRequest(in *os.File) (*HTTPRequest, error) {
 		return req, nil
 	}
 
-	if req.length > maxRequestBodyLength {
+	if req.length > maxBodyLen {
 		return nil, fmt.Errorf("request body too long: %v", req.length)
 	}
 
@@ -137,7 +132,7 @@ func parseRequestLine(line string) (*HTTPRequest, error) {
 	}
 
 	// check supported HTTP version
-	if p[2] != HTTPVer {
+	if p[2] != httpVer {
 		return nil, fmt.Errorf("not supported HTTP version: %v", p[2])
 	}
 
@@ -276,7 +271,7 @@ func notImplemented(req *HTTPRequest, out *os.File) {
 }
 
 func outputCommonHeaderFields(req *HTTPRequest, out *os.File, status string) {
-	fmt.Fprintf(out, "%s %s\r\n", HTTPVer, status)
+	fmt.Fprintf(out, "%s %s\r\n", httpVer, status)
 	fmt.Fprintf(out, "Date: %s\r\n", time.Now().Format(time.RFC1123))
 	fmt.Fprintf(out, "Server: %s/%s\r\n", serverName, serverVer)
 	fmt.Fprintf(out, "Connection: close\r\n")
