@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/k0kubun/pp"
 )
 
 const (
@@ -17,6 +20,7 @@ const (
 	maxBodyLen  = 1024 * 1024
 	serverName  = "LittleHTTP"
 	serverVer   = "1.0"
+	usage       = "Usage: %s [-port=n] [-chroot -user=u -group=g] [-debug] <docroot>\n"
 )
 
 // HTTPHeaderField represents an HTTP header field.
@@ -32,17 +36,60 @@ type HTTPRequest struct {
 	length int64
 }
 
-func main() {
-	args := os.Args
+type option struct {
+	debug  bool
+	chroot bool
+	user   string
+	group  string
+	port   int
+}
 
-	if len(args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %v <docroot>\n", args[0])
+type logger interface {
+	debug(format string, arg ...interface{})
+}
+
+type httpLogger struct {
+	debugMode bool
+}
+
+func newLogger(debugMode bool) *httpLogger {
+	return &httpLogger{debugMode: debugMode}
+}
+
+func (l *httpLogger) debug(format string, arg ...interface{}) {
+	if !l.debugMode {
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, format, arg...)
+}
+
+func main() {
+	opt := &option{}
+	flag.BoolVar(&opt.debug, "debug", false, "start on debug mode")
+	flag.BoolVar(&opt.chroot, "chroot", false, "change root directory")
+	flag.StringVar(&opt.user, "user", "user", "user")
+	flag.StringVar(&opt.group, "group", "group", "group")
+	flag.IntVar(&opt.port, "port", 8080, "port")
+	flag.Parse()
+
+	args := flag.Args()
+
+	logger := newLogger(opt.debug)
+	logger.debug("%v\n", opt)
+
+	if _, e := pp.Print(opt); e != nil {
+		return
+	}
+
+	if len(args) != 1 {
+		fmt.Fprintf(os.Stderr, usage, os.Args[0])
 		return
 	}
 
 	// TODO: installSignalHandlers()
 
-	docroot := args[1]
+	docroot := args[0]
 	service(os.Stdin, os.Stdout, docroot)
 }
 
