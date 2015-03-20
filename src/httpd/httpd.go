@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/k0kubun/pp"
@@ -61,7 +62,7 @@ func (l *httpLogger) debug(format string, arg ...interface{}) {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, format, arg...)
+	_, _ = pp.Fprintf(os.Stderr, format, arg...)
 }
 
 func main() {
@@ -78,10 +79,6 @@ func main() {
 	logger := newLogger(opt.debug)
 	logger.debug("%v\n", opt)
 
-	if _, e := pp.Print(opt); e != nil {
-		return
-	}
-
 	if len(args) != 1 {
 		fmt.Fprintf(os.Stderr, usage, os.Args[0])
 		return
@@ -90,7 +87,40 @@ func main() {
 	// TODO: installSignalHandlers()
 
 	docroot := args[0]
+
+	server, err := listenSocket(opt.port)
+	if err != nil {
+		perror(err)
+		return
+	}
+
+	logger.debug("server fd: %v\n", server)
+
 	service(os.Stdin, os.Stdout, docroot)
+}
+
+const maxBacklog = 5
+
+func listenSocket(port int) (int, error) {
+	sock, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
+	if err != nil {
+		return 0, fmt.Errorf("socket() failed: %v", err)
+	}
+
+	sa, err := syscall.Getsockname(sock)
+	if err != nil {
+		return 0, fmt.Errorf("syscall.Getsockname(%v) failed: %v", sock, err)
+	}
+
+	if e := syscall.Bind(sock, sa); e != nil {
+		return 0, fmt.Errorf("bind(%v, %v) failed: %v", sock, sa, err)
+	}
+
+	if e := syscall.Listen(sock, maxBacklog); e != nil {
+		return 0, fmt.Errorf("listen(%v, %v) failed: %v", sock, maxBacklog, err)
+	}
+
+	return sock, nil
 }
 
 func service(in, out *os.File, docroot string) {
