@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	httpVer     = "HTTP/1.0"
+	httpVer     = "HTTP/1.1"
 	headerDelim = ": "
 	maxBodyLen  = 1024 * 1024
 	serverName  = "LittleHTTP"
@@ -47,6 +47,7 @@ type option struct {
 
 type logger interface {
 	debug(format string, arg ...interface{})
+	err(format string, arg ...interface{})
 }
 
 type httpLogger struct {
@@ -65,6 +66,12 @@ func (l *httpLogger) debug(format string, arg ...interface{}) {
 	_, _ = pp.Fprintf(os.Stderr, format, arg...)
 }
 
+func (l *httpLogger) err(format string, arg ...interface{}) {
+	_, _ = fmt.Fprintf(os.Stderr, format, arg...)
+}
+
+var log logger
+
 func main() {
 	opt := &option{}
 	flag.BoolVar(&opt.debug, "debug", false, "start on debug mode")
@@ -76,8 +83,8 @@ func main() {
 
 	args := flag.Args()
 
-	logger := newLogger(opt.debug)
-	logger.debug("%v\n", opt)
+	log = newLogger(opt.debug)
+	log.debug("%v\n", opt)
 
 	if len(args) != 1 {
 		fmt.Fprintf(os.Stderr, usage, os.Args[0])
@@ -94,9 +101,9 @@ func main() {
 		return
 	}
 
-	logger.debug("server fd: %v\n", server)
+	log.debug("server fd: %v\n", server)
 
-	service(os.Stdin, os.Stdout, docroot)
+	serverMain(server, docroot)
 }
 
 const maxBacklog = 5
@@ -107,10 +114,14 @@ func listenSocket(port int) (int, error) {
 		return 0, fmt.Errorf("socket() failed: %v", err)
 	}
 
-	sa, err := syscall.Getsockname(sock)
-	if err != nil {
-		return 0, fmt.Errorf("syscall.Getsockname(%v) failed: %v", sock, err)
+	log.debug("sock: %v\n", sock)
+
+	sa := &syscall.SockaddrInet4{
+		Port: port,
+		Addr: [4]byte{127, 0, 0, 1},
 	}
+
+	log.debug("socket addr: %v\n", sa)
 
 	if e := syscall.Bind(sock, sa); e != nil {
 		return 0, fmt.Errorf("bind(%v, %v) failed: %v", sock, sa, err)
@@ -123,18 +134,37 @@ func listenSocket(port int) (int, error) {
 	return sock, nil
 }
 
-func service(in, out *os.File, docroot string) {
+func serverMain(server int, docroot string) {
+	for {
+		sock, _, err := syscall.Accept(server)
+		if err != nil {
+			log.err("accept(%v) failed: %v\n", server, err)
+		}
+
+		log.debug("accept %v\n", sock)
+
+		go func(sock int) {
+			s := os.NewFile(uintptr(sock), "socket")
+
+			if e := service(s, s, docroot); e != nil {
+				log.err("service() failed: %v\n", e)
+			}
+		}(sock)
+	}
+}
+
+func service(in, out *os.File, docroot string) error {
 	req, err := readRequest(in)
 	if err != nil {
-		perror(err)
-		return
+		return fmt.Errorf("readRequest(%v) failed: %v", in, err)
 	}
 
 	err = respondTo(req, out, docroot)
 	if err != nil {
-		perror(err)
-		return
+		return fmt.Errorf("readTo(%v, %v, %v) failed: %v", req, out, docroot, err)
 	}
+
+	return nil
 }
 
 func readRequest(in *os.File) (*HTTPRequest, error) {
@@ -145,6 +175,8 @@ func readRequest(in *os.File) (*HTTPRequest, error) {
 	if err == io.EOF {
 		return nil, fmt.Errorf("failed to read request: EOF")
 	}
+
+	log.debug("req header: %v\n", line)
 
 	// parse request line to HTTPRequest
 	req, err := parseRequestLine(line)
