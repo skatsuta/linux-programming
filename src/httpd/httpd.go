@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -116,10 +117,12 @@ func main() {
 	if !opt.debug {
 		// openLog()
 
-		if e := becomeDaemon(); e != nil {
-			log.err("becomeDaemon() failed: %v", e)
-			return
-		}
+		/*
+			if e := becomeDaemon(); e != nil {
+				log.err("becomeDaemon() failed: %v", e)
+				return
+			}
+		*/
 	}
 
 	serverMain(server, docroot)
@@ -147,8 +150,6 @@ func listenSocket(port int) (int, error) {
 		Port: port,
 		Addr: [4]byte{127, 0, 0, 1},
 	}
-
-	log.debug("socket addr: %v\n", sa)
 
 	if e := syscall.Bind(sock, sa); e != nil {
 		_ = syscall.Close(sock)
@@ -436,7 +437,26 @@ func outputCommonHeaderFields(req *HTTPRequest, out *os.File, status string) {
 }
 
 func guessContentType(fi os.FileInfo) string {
-	return "text/plain"
+	ext := filepath.Ext(fi.Name())
+
+	log.debug("file: %v   ext: %v\n", fi.Name(), ext)
+
+	switch ext {
+	case ".json":
+		return "application/json"
+	case ".js":
+		return "application/javascript"
+	case ".htm", ".html":
+		return "text/html"
+	case ".css":
+		return "text/css"
+	case ".jpeg", "jpg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	default:
+		return "text/plain"
+	}
 }
 
 func getFileInfo(docroot, urlpath string) (os.FileInfo, error) {
