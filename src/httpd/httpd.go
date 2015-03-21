@@ -124,10 +124,12 @@ func listenSocket(port int) (int, error) {
 	log.debug("socket addr: %v\n", sa)
 
 	if e := syscall.Bind(sock, sa); e != nil {
-		return 0, fmt.Errorf("bind(%v, %v) failed: %v", sock, sa, err)
+		_ = syscall.Close(sock)
+		return 0, fmt.Errorf("bind to %v:%v failed: %v", sa.Addr, sa.Port, err)
 	}
 
 	if e := syscall.Listen(sock, maxBacklog); e != nil {
+		_ = syscall.Close(sock)
 		return 0, fmt.Errorf("listen(%v, %v) failed: %v", sock, maxBacklog, err)
 	}
 
@@ -139,6 +141,7 @@ func serverMain(server int, docroot string) {
 		sock, _, err := syscall.Accept(server)
 		if err != nil {
 			log.err("accept(%v) failed: %v\n", server, err)
+			continue
 		}
 
 		log.debug("accept %v\n", sock)
@@ -149,6 +152,10 @@ func serverMain(server int, docroot string) {
 			if e := service(s, s, docroot); e != nil {
 				log.err("service() failed: %v\n", e)
 			}
+
+			if e := syscall.Close(sock); e != nil {
+				log.err("close(%v) failed: %v\n", sock, e)
+			}
 		}(sock)
 	}
 }
@@ -156,12 +163,12 @@ func serverMain(server int, docroot string) {
 func service(in, out *os.File, docroot string) error {
 	req, err := readRequest(in)
 	if err != nil {
-		return fmt.Errorf("readRequest(%v) failed: %v", in, err)
+		return fmt.Errorf("readRequest() failed: %v", err)
 	}
 
 	err = respondTo(req, out, docroot)
 	if err != nil {
-		return fmt.Errorf("readTo(%v, %v, %v) failed: %v", req, out, docroot, err)
+		return fmt.Errorf("respondTo() failed: %v", err)
 	}
 
 	return nil
@@ -173,7 +180,7 @@ func readRequest(in *os.File) (*HTTPRequest, error) {
 	// read request line
 	line, err := r.ReadString('\n')
 	if err == io.EOF {
-		return nil, fmt.Errorf("failed to read request: EOF")
+		return nil, nil
 	}
 
 	log.debug("req header: %v\n", line)
