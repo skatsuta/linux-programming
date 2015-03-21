@@ -63,11 +63,11 @@ func (l *httpLogger) debug(format string, arg ...interface{}) {
 		return
 	}
 
-	_, _ = pp.Fprintf(os.Stderr, format, arg...)
+	_, _ = pp.Fprintf(os.Stderr, "[debug] "+format, arg...)
 }
 
 func (l *httpLogger) err(format string, arg ...interface{}) {
-	_, _ = fmt.Fprintf(os.Stderr, format, arg...)
+	_, _ = fmt.Fprintf(os.Stderr, "[error]"+format, arg...)
 }
 
 var log logger
@@ -91,19 +91,46 @@ func main() {
 		return
 	}
 
-	// TODO: installSignalHandlers()
-
 	docroot := args[0]
+
+	/*
+		if opt.chroot {
+			if e := setupEnvironment(docroot); e != nil {
+				log.err("setupEnvironment(%v, %v, %v) falied: %v",
+					docroot, opt.user, opt.group, e)
+			}
+			docroot = ""
+		}
+	*/
+
+	// TODO: installSignalHandlers()
 
 	server, err := listenSocket(opt.port)
 	if err != nil {
-		perror(err)
+		log.err("listenSocket(%v) failed: %v", opt.port, err)
 		return
 	}
 
 	log.debug("server fd: %v\n", server)
 
+	if !opt.debug {
+		// openLog()
+
+		if e := becomeDaemon(); e != nil {
+			log.err("becomeDaemon() failed: %v", e)
+			return
+		}
+	}
+
 	serverMain(server, docroot)
+}
+
+func setupEnvironment(docroot string) error {
+	if e := syscall.Chroot(docroot); e != nil {
+		return fmt.Errorf("chroot(%v) failed: %v", docroot, e)
+	}
+
+	return nil
 }
 
 const maxBacklog = 5
@@ -134,6 +161,21 @@ func listenSocket(port int) (int, error) {
 	}
 
 	return sock, nil
+}
+
+func becomeDaemon() error {
+	rootDir := "/"
+	if e := os.Chdir(rootDir); e != nil {
+		return fmt.Errorf("os.Chdir(%v) failed: %v", rootDir, e)
+	}
+
+	// replace std* with /dev/null so that avoid error if std* are used
+	devNull := "/dev/null"
+	os.Stdin = os.NewFile(uintptr(syscall.Stdin), devNull)
+	os.Stdout = os.NewFile(uintptr(syscall.Stdout), devNull)
+	os.Stderr = os.NewFile(uintptr(syscall.Stderr), devNull)
+
+	return nil
 }
 
 func serverMain(server int, docroot string) {
@@ -409,8 +451,4 @@ func buildFSPath(docroot, urlpath string) string {
 func installSignalHandlers() {
 	// TODO
 	return
-}
-
-func perror(err error) {
-	fmt.Fprintf(os.Stderr, "[error] %v\n", err)
 }

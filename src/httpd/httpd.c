@@ -138,8 +138,6 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	docroot = argv[optind];
-
 	if (do_chroot) {
 		setup_environment(docroot, user, group);
 		docroot = "";
@@ -154,7 +152,9 @@ main(int argc, char *argv[])
 		become_daemon();
 	}
 
+	docroot = argv[optind];
 	server_main(server, docroot);
+
 	return 0;
 }
 
